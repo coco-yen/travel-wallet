@@ -458,11 +458,7 @@ window.AppUI = (function () {
       const allocRecords = [];
       draftItems.forEach((it, idx) => (it.allocations || []).forEach(a => allocRecords.push({ id: a.id || Store.genId('alc'), expenseId, expenseItemId: itemRecords[idx].id, tripId, memberId: a.memberId, splitType: it.splitMode || a.splitType || 'equal', allocatedQty: Number(a.allocatedQty || 0), allocatedOriginal: Number(a.allocatedOriginal || 0), allocatedTwd: 0 })));
       const previewCheck = Engine.calculateExpenseBreakdown(expenseRecord, itemRecords, allocRecords);
-      if (previewCheck.warnings.length > 0 && !confirm(`分帳提醒：
-- ${previewCheck.warnings.join('
-- ')}
-
-確定仍要儲存嗎？`)) return;
+      if (previewCheck.warnings.length > 0 && !confirm('分帳提醒：\n- ' + previewCheck.warnings.join('\n- ') + '\n\n確定仍要儲存嗎？')) return;
 
       Store.mutate([
         ...data.ExpenseItems.filter(i => i.expenseId === expenseId).map(i => ({ table: 'ExpenseItems', type: 'delete', id: i.id })),
