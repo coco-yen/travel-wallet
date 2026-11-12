@@ -1,10 +1,15 @@
 window.TravelExporter = (function () {
   function downloadBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = filename;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }
+
   function exportAllCSV(tripState, settlement) {
     const lines = [];
     const addSection = (title, headers, rows) => {
@@ -14,15 +19,31 @@ window.TravelExporter = (function () {
       lines.push('');
     };
     const memberMap = Object.fromEntries((tripState.Members || []).map(m => [m.id, m.name]));
-    addSection('消費紀錄', ['ID', '日期時間', '店家名稱', '付款人', '付款方式', '幣別', '原幣金額', '匯率', '台幣金額', '備註'],
-      (tripState.Expenses || []).map(e => [e.id, e.dateTime, e.merchantName, memberMap[e.payerMemberId] || e.payerMemberId, e.paymentMethod, e.currency, e.originalAmount, e.exchangeRate, e.twdAmount, e.note]));
-    addSection('最終結算', ['旅伴', '消費代墊(TWD)', '已轉出(TWD)', '已收到(TWD)', '代收退稅(TWD)', '消費總分攤(TWD)', '退稅折抵(TWD)', '淨應負擔(TWD)', '最終餘額(TWD)'],
-      (settlement.summaries || []).map(s => [s.name, s.paidForExpensesTwd, s.transfersSentTwd, s.transfersReceivedTwd, s.taxRefundReceivedTwd, s.grossShareTwd, s.taxRefundBenefitTwd, s.netShareTwd, s.netBalanceTwd]));
-    downloadBlob(new Blob(['﻿' + lines.join('
-')], { type: 'text/csv;charset=utf-8;' }), `TravelWallet_${new Date().toISOString().slice(0, 10)}.csv`);
+    addSection(
+      '消費紀錄',
+      ['ID', '日期時間', '店家名稱', '付款人', '付款方式', '幣別', '原幣金額', '匯率', '台幣金額', '備註'],
+      (tripState.Expenses || []).map(e => [
+        e.id, e.dateTime, e.merchantName, memberMap[e.payerMemberId] || e.payerMemberId,
+        e.paymentMethod, e.currency, e.originalAmount, e.exchangeRate, e.twdAmount, e.note
+      ])
+    );
+    addSection(
+      '最終結算',
+      ['旅伴', '消費代墊(TWD)', '已轉出(TWD)', '已收到(TWD)', '代收退稅(TWD)', '消費總分攤(TWD)', '退稅折抵(TWD)', '淨應負擔(TWD)', '最終餘額(TWD)'],
+      (settlement.summaries || []).map(s => [
+        s.name, s.paidForExpensesTwd, s.transfersSentTwd, s.transfersReceivedTwd,
+        s.taxRefundReceivedTwd, s.grossShareTwd, s.taxRefundBenefitTwd, s.netShareTwd, s.netBalanceTwd
+      ])
+    );
+    const csvText = '\uFEFF' + lines.join('\n');
+    downloadBlob(new Blob([csvText], { type: 'text/csv;charset=utf-8;' }), `TravelWallet_${new Date().toISOString().slice(0, 10)}.csv`);
   }
+
   function exportExcelWorkbook(tripState, settlement) {
-    if (typeof XLSX === 'undefined') { alert('Excel 套件載入中，請稍候或使用 CSV 匯出'); return; }
+    if (typeof XLSX === 'undefined') {
+      alert('Excel 套件載入中，請稍候或使用 CSV 匯出');
+      return;
+    }
     const wb = XLSX.utils.book_new();
     const memberMap = Object.fromEntries((tripState.Members || []).map(m => [m.id, m.name]));
     const addSheet = (name, rows) => XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows.length ? rows : [{ 提示: '無資料' }]), name.slice(0, 31));
@@ -35,5 +56,6 @@ window.TravelExporter = (function () {
     addSheet('7_最終結算', (settlement.summaries || []).map(s => ({ 旅伴: s.name, 消費代墊: s.paidForExpensesTwd, 淨應負擔: s.netShareTwd, 最終餘額: s.netBalanceTwd })));
     XLSX.writeFile(wb, `TravelWallet_帳務報表_${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
+
   return { exportAllCSV, exportExcelWorkbook };
 })();
