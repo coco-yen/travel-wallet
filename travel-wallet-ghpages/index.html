@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Travel Wallet｜多人旅遊費用與複合退稅管理</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-badge">TW</div>
+      <div class="brand-title">Travel Wallet</div>
+      <select id="activeTripSelect" class="trip-selector" title="切換旅程"></select>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div class="sync-pill" id="syncStatusPill">
+        <span class="sync-dot"></span>
+        <span id="syncStatusText">載入中...</span>
+      </div>
+      <button class="btn btn-secondary btn-sm" id="btnManualSync">立即同步</button>
+    </div>
+  </header>
+
+  <nav class="nav-tabs" id="mainNav">
+    <button class="nav-tab active" data-tab="overview">1. 總覽</button>
+    <button class="nav-tab" data-tab="expenses">2. 消費紀錄</button>
+    <button class="nav-tab" data-tab="add-expense">3. 新增 / 編輯消費</button>
+    <button class="nav-tab" data-tab="payments">4. 收付款紀錄</button>
+    <button class="nav-tab" data-tab="taxes">5. 複合式退稅</button>
+    <button class="nav-tab" data-tab="settlement">6. 結算與轉帳</button>
+    <button class="nav-tab" data-tab="settings">7. 資料與金鑰設定</button>
+  </nav>
+
+  <main class="container">
+    <section id="tab-overview" class="page-section active">
+      <div id="globalAlerts"></div>
+      <div class="kpi-grid" id="overviewKpis"></div>
+      <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));">
+        <div class="card">
+          <div class="card-header"><h2 class="card-title">各幣別消費統計</h2></div>
+          <div class="table-wrap"><table><thead><tr><th>幣別</th><th class="num">原幣總額</th><th class="num">折合台幣</th></tr></thead><tbody id="currencyBreakdownBody"></tbody></table></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><h2 class="card-title">旅伴即時餘額概況 (TWD)</h2></div>
+          <div class="table-wrap"><table><thead><tr><th>旅伴</th><th class="num">淨應負擔</th><th class="num">已墊付淨額</th><th class="num">最終餘額</th></tr></thead><tbody id="overviewMemberBody"></tbody></table></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-expenses" class="page-section">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">消費紀錄列表</h2>
+          <button class="btn btn-primary btn-sm" onclick="window.AppUI.openNewExpense()">+ 新增一筆消費</button>
+        </div>
+        <div class="form-grid" style="margin-bottom:14px;">
+          <div class="form-group"><label>關鍵字搜尋</label><input type="text" id="filterKeyword" placeholder="店家 / 品項 / 備註..." /></div>
+          <div class="form-group"><label>篩選付款人</label><select id="filterPayer"><option value="">全部成員</option></select></div>
+          <div class="form-group"><label>篩選付款方式</label><select id="filterMethod"><option value="">全部方式</option><option value="credit_card">信用卡</option><option value="cash">現金</option><option value="transit_card">交通卡</option></select></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>日期時間</th><th>店家 / 消費名稱</th><th>付款人</th><th>付款方式</th><th class="num">原幣金額</th><th class="num">台幣金額</th><th>操作</th></tr></thead>
+            <tbody id="expensesTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-add-expense" class="page-section">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title" id="expenseFormTitle">新增消費與品項分帳</h2>
+          <button class="btn btn-secondary btn-sm" id="btnResetExpenseForm">清空重填</button>
+        </div>
+
+        <div class="item-box" style="background:var(--bg-beige);">
+          <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;">
+            <div>
+              <strong>AI 收據拍照 / 上傳辨識（支援 Google Gemini / OpenAI）</strong>
+              <div style="font-size:0.82rem;color:var(--brown-mid);">使用前請先至「7. 資料與金鑰設定」貼上您自己的 Gemini / OpenAI API Key（僅存於個人瀏覽器，完全不消耗站長額度）。辨識完畢後所有欄位皆可直接修改。</div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+              <select id="receiptAiProvider" style="padding:6px 10px;font-size:0.85rem;background:#FFF;">
+                <option value="auto">自動判斷已設定 AI</option>
+                <option value="gemini">Google Gemini</option>
+                <option value="openai">OpenAI Vision</option>
+              </select>
+              <input type="file" id="receiptFileInput" accept="image/*" />
+              <button type="button" class="btn btn-primary btn-sm" id="btnRunReceiptOcr">開始 AI 辨識</button>
+            </div>
+          </div>
+          <div id="receiptOcrReviewBanner" style="margin-top:10px;display:none;"></div>
+          <div id="receiptPreviewBox" style="margin-top:10px;display:none;"></div>
+        </div>
+
+        <form id="expenseForm">
+          <input type="hidden" id="expId" />
+          <div class="form-grid">
+            <div class="form-group"><label>消費日期與時間 *</label><input type="datetime-local" id="expDateTime" required /></div>
+            <div class="form-group"><label>消費名稱 / 店家名稱 *</label><input type="text" id="expMerchant" placeholder="例如：松本清 新宿店" required /></div>
+            <div class="form-group"><label>付款人 *</label><select id="expPayer" required></select></div>
+            <div class="form-group"><label>付款方式（與幣別獨立） *</label>
+              <select id="expMethod" required>
+                <option value="credit_card">信用卡 (Credit Card)</option>
+                <option value="cash">現金 (Cash)</option>
+                <option value="transit_card">交通卡 (Suica / ICOCA / T-money 等)</option>
+              </select>
+            </div>
+            <div class="form-group" id="cardNoteGroup"><label>信用卡備註</label><input type="text" id="expCardNote" placeholder="例如：富邦 J 卡" /></div>
+            <div class="form-group" id="transitNoteGroup" style="display:none;"><label>交通卡名稱</label><input type="text" id="expTransitName" placeholder="例如：Mobile Suica" /></div>
+            <div class="form-group"><label>消費幣別 *</label><select id="expCurrency"></select></div>
+            <div class="form-group"><label>原幣總金額 *</label><input type="number" step="0.01" id="expOriginalAmount" required /></div>
+            <div class="form-group"><label>參考匯率 (1 原幣 = ? TWD)</label><input type="number" step="0.0001" id="expExchangeRate" value="0.22" /></div>
+            <div class="form-group"><label>實際台幣金額 (信用卡請填實際台幣扣款) *</label><input type="number" step="1" id="expTwdAmount" required /></div>
+            <div class="form-group"><label>整單折扣 (原幣減項)</label><input type="number" step="0.01" id="expDiscount" value="0" /></div>
+            <div class="form-group"><label>稅額 / 服務費 / 手續費 (原幣加項)</label><input type="number" step="0.01" id="expTaxFee" value="0" /></div>
+          </div>
+
+          <div class="form-group" style="margin-top:12px;"><label>消費備註</label><input type="text" id="expNote" placeholder="補充說明..." /></div>
+
+          <div style="margin-top:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+            <h3 class="card-title">商品品項明細與旅伴分帳（可隨時手動編修）</h3>
+            <div style="display:flex;gap:8px;">
+              <button type="button" class="btn btn-secondary btn-sm" id="btnRecalcTotalFromItems">依品項加總重算原幣總額</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btnAddItemRow">+ 新增商品品項</button>
+            </div>
+          </div>
+
+          <div id="expenseItemsContainer" style="margin-top:10px;"></div>
+          <div style="margin-top:18px;display:flex;gap:10px;">
+            <button type="submit" class="btn btn-primary">確認無誤並儲存消費</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section id="tab-payments" class="page-section">
+      <div class="card">
+        <div class="card-header"><h2 class="card-title">新增獨立收付款紀錄（當場給現金 / 分次還款）</h2></div>
+        <form id="paymentForm">
+          <div class="form-grid">
+            <div class="form-group"><label>日期時間 *</label><input type="datetime-local" id="payDateTime" required /></div>
+            <div class="form-group"><label>付款者 *</label><select id="payFromMember" required></select></div>
+            <div class="form-group"><label>收款者 *</label><select id="payToMember" required></select></div>
+            <div class="form-group"><label>幣別 *</label><select id="payCurrency"></select></div>
+            <div class="form-group"><label>原幣金額 *</label><input type="number" step="0.01" id="payOriginalAmount" required /></div>
+            <div class="form-group"><label>匯率</label><input type="number" step="0.0001" id="payExchangeRate" value="0.22" /></div>
+            <div class="form-group"><label>台幣折算金額 (TWD) *</label><input type="number" step="1" id="payTwdAmount" required /></div>
+            <div class="form-group"><label>付款方式</label><select id="payMethod"><option value="cash">現金</option><option value="bank_transfer">銀行轉帳</option><option value="other">其他</option></select></div>
+            <div class="form-group"><label>關聯消費（選填）</label><select id="payRelatedExpense"><option value="">不指定單筆</option></select></div>
+            <div class="form-group"><label>備註</label><input type="text" id="payNote" placeholder="備註..." /></div>
+          </div>
+          <button type="submit" class="btn btn-primary" style="margin-top:14px;">新增收付款紀錄</button>
+        </form>
+      </div>
+      <div class="card">
+        <div class="card-header"><h2 class="card-title">收付款歷史明細</h2></div>
+        <div class="table-wrap"><table><thead><tr><th>日期時間</th><th>付款者</th><th>收款者</th><th>方式</th><th class="num">原幣</th><th class="num">台幣</th><th>備註</th><th>操作</th></tr></thead><tbody id="paymentsTableBody"></tbody></table></div>
+      </div>
+    </section>
+
+    <section id="tab-taxes" class="page-section">
+      <div class="card">
+        <div class="card-header"><h2 class="card-title">新增複合式退稅單（支援多店、多收據、逐項退稅）</h2></div>
+        <div class="item-box" style="background:var(--bg-beige);">
+          <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;">
+            <div>
+              <strong>AI 退稅單辨識（支援 Google Gemini / OpenAI，辨識後可手動編修）</strong>
+              <div style="font-size:0.82rem;color:var(--brown-mid);">自動辨識退稅金額與幣別，填入後仍可自由修改。</div>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+              <select id="taxAiProvider" style="padding:6px 10px;font-size:0.85rem;background:#FFF;">
+                <option value="auto">自動判斷已設定 AI</option>
+                <option value="gemini">Google Gemini</option>
+                <option value="openai">OpenAI Vision</option>
+              </select>
+              <input type="file" id="taxFileInput" accept="image/*" />
+              <button type="button" class="btn btn-secondary btn-sm" id="btnRunTaxOcr">辨識退稅單</button>
+            </div>
+          </div>
+        </div>
+        <form id="taxForm">
+          <div class="form-grid">
+            <div class="form-group"><label>退稅日期時間 *</label><input type="datetime-local" id="taxDateTime" required /></div>
+            <div class="form-group"><label>退稅單名稱 *</label><input type="text" id="taxTitle" placeholder="例如：成田機場第2航廈合併退稅" required /></div>
+            <div class="form-group"><label>退稅方式 *</label><select id="taxRefundType"><option value="post_refund">事後退稅</option><option value="onsite_deducted">當場退稅</option></select></div>
+            <div class="form-group"><label>退稅狀態 *</label><select id="taxStatus"><option value="refunded">已退款</option><option value="confirmed">已確認</option><option value="processing">退款處理中</option><option value="pending_confirm">待確認</option><option value="pending_match">待配對</option></select></div>
+            <div class="form-group"><label>退稅幣別 *</label><select id="taxCurrency"></select></div>
+            <div class="form-group"><label>實際退款總額 (原幣) *</label><input type="number" step="0.01" id="taxRefundOriginal" required /></div>
+            <div class="form-group"><label>匯率</label><input type="number" step="0.0001" id="taxExchangeRate" value="0.22" /></div>
+            <div class="form-group"><label>實際退款台幣總額 (TWD) *</label><input type="number" step="1" id="taxRefundTwd" required /></div>
+            <div class="form-group"><label>實際收到退款的人 *</label><select id="taxReceiverMember" required></select></div>
+            <div class="form-group"><label>備註</label><input type="text" id="taxNote" /></div>
+          </div>
+          <div style="margin-top:16px;"><label>勾選關聯的多店消費收據與符合退稅資格商品：</label><div id="taxReceiptsSelector" style="margin-top:8px;"></div></div>
+          <button type="submit" class="btn btn-primary" style="margin-top:14px;">儲存退稅單並重算分帳</button>
+        </form>
+      </div>
+      <div class="card"><div class="card-header"><h2 class="card-title">退稅紀錄與多對多關聯明細</h2></div><div id="taxesListContainer"></div></div>
+    </section>
+
+    <section id="tab-settlement" class="page-section">
+      <div class="card"><div class="card-header"><h2 class="card-title">最佳化轉帳建議（最少轉帳次數）</h2></div><div id="suggestedTransfersContainer"></div></div>
+      <div class="card">
+        <div class="card-header"><h2 class="card-title">每位成員完整帳務總表與可追溯明細 (TWD)</h2></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>旅伴</th><th class="num">消費代墊</th><th class="num">已轉出</th><th class="num">已收到</th><th class="num">代收退稅</th><th class="num">消費分攤</th><th class="num">退稅折抵</th><th class="num">最終餘額</th><th>追溯</th></tr></thead>
+            <tbody id="settlementTableBody"></tbody>
+          </table>
+        </div>
+        <div id="memberTraceDrawer" style="margin-top:16px;"></div>
+      </div>
+    </section>
+
+    <section id="tab-settings" class="page-section">
+      <div class="card" style="border:2px solid var(--caramel);">
+        <div class="card-header">
+          <h2 class="card-title">Google Sheets 資料庫與 AI 金鑰設定（純靜態 GitHub Pages 安全架構）</h2>
+          <span class="badge">所有金鑰僅存於您自己的瀏覽器本機</span>
+        </div>
+        <p style="font-size:0.86rem;color:var(--brown-mid);margin-top:0;">
+          本網站託管於 <strong>GitHub Pages</strong>，程式碼完全公開且不含任何金鑰。每位使用者只需在自己的瀏覽器貼上：
+          <br>1. <strong>Google Apps Script 網頁應用程式網址 (`/exec`)</strong> 與 <strong>試算表密鑰</strong>：即可多人共用同一份 Google 試算表同步記帳。
+          <br>2. <strong>您自己的 Google Gemini API Key 或 OpenAI API Key</strong>：直接從您的瀏覽器呼叫官方 AI 辨識收據，完全不會花到站長一毛錢額度！
+        </p>
+        <form id="credentialsForm">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Google Apps Script 部署網址 (/exec)</label>
+              <input type="url" id="credGasUrl" placeholder="https://script.google.com/macros/s/.../exec" />
+            </div>
+            <div class="form-group">
+              <label>Google Apps Script 試算表密鑰 (GAS_SHARED_SECRET)</label>
+              <input type="password" id="credGasSecret" placeholder="輸入您設定的試算表密碼..." />
+            </div>
+            <div class="form-group">
+              <label>您的 Google Gemini API Key（免費申請，優先使用）</label>
+              <input type="password" id="credGeminiKey" placeholder="AIzaSy..." />
+            </div>
+            <div class="form-group">
+              <label>您的 OpenAI API Key（選填）</label>
+              <input type="password" id="credOpenAIKey" placeholder="sk-proj-..." />
+            </div>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:10px;">
+            <button type="submit" class="btn btn-primary">儲存本機設定並立即連線試算表</button>
+            <button type="button" class="btn btn-secondary" id="btnClearCredentials">清除本機金鑰</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));">
+        <div class="card">
+          <div class="card-header"><h2 class="card-title">旅程管理</h2></div>
+          <form id="tripForm">
+            <div class="form-group"><label>新建旅程名稱</label><input type="text" id="newTripName" required /></div>
+            <div class="form-grid" style="margin-top:10px;"><div class="form-group"><label>開始日期</label><input type="date" id="newTripStart" /></div><div class="form-group"><label>結束日期</label><input type="date" id="newTripEnd" /></div></div>
+            <button type="submit" class="btn btn-primary" style="margin-top:12px;">建立新旅程</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="card-header"><h2 class="card-title">旅伴成員管理</h2></div>
+          <form id="memberForm" style="display:flex;gap:8px;margin-bottom:12px;">
+            <input type="text" id="newMemberName" placeholder="旅伴姓名..." required style="flex:1;" />
+            <input type="text" id="newMemberNote" placeholder="備註" style="width:120px;" />
+            <button type="submit" class="btn btn-primary">新增</button>
+          </form>
+          <div id="membersListContainer"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h2 class="card-title">匯出報表、JSON 備份還原與連線診斷</h2></div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+          <button class="btn btn-primary" id="btnExportExcel">匯出完整 Excel (.xlsx)</button>
+          <button class="btn btn-secondary" id="btnExportCsv">匯出 CSV 報表</button>
+          <button class="btn btn-secondary" id="btnExportJson">下載 JSON 完整備份</button>
+          <label class="btn btn-secondary" style="cursor:pointer;">從 JSON 還原資料<input type="file" id="importJsonInput" accept=".json" style="display:none;" /></label>
+          <button class="btn btn-secondary" id="btnLoadSeedData">載入 5 大帳務測試案例示範資料</button>
+        </div>
+        <div id="apiDiagnosticBox" class="item-box"></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/engine.js"></script>
+  <script src="js/store.js"></script>
+  <script src="js/exporter.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
