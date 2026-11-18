@@ -159,25 +159,33 @@ window.TravelStore = (function () {
       const match = imageBase64.match(/^data:(.+?);base64,(.+)$/);
       const mimeType = match ? match[1] : 'image/jpeg';
       const rawBase64 = match ? match[2] : imageBase64;
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(uGemini)}`;
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: sysPrompt }] },
-          contents: [{ role: 'user', parts: [{ text: userInstruction }, { inlineData: { mimeType, data: rawBase64 } }] }],
-          generationConfig: { temperature: 0.1, responseMimeType: 'application/json' }
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error?.message || 'Gemini API 呼叫失敗');
-      const textOut = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-      return {
-        ok: true,
-        providerUsed: 'gemini',
-        keySource: 'byok_direct',
-        result: JSON.parse(textOut.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim())
-      };
+      const modelsToTry = ['gemini-3.8-flash', 'gemini-3.5-flash-lite'];
+      let lastErrorMsg = 'Gemini 伺服器忙碌中';
+
+      for (const modelName of modelsToTry) {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(uGemini)}`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: sysPrompt }] },
+            contents: [{ role: 'user', parts: [{ text: userInstruction }, { inlineData: { mimeType, data: rawBase64 } }] }],
+            generationConfig: { temperature: 0.1, responseMimeType: 'application/json' }
+          })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          const textOut = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+          return {
+            ok: true,
+            providerUsed: `gemini (${modelName})`,
+            keySource: 'byok_direct',
+            result: JSON.parse(textOut.replace(/^```json\s*/i, '').replace(/```\s*$/i, '').trim())
+          };
+        }
+        lastErrorMsg = data.error?.message || lastErrorMsg;
+      }
+      throw new Error(lastErrorMsg);
     }
 
     if (directProvider === 'openai') {
