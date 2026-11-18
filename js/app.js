@@ -403,7 +403,12 @@ window.AppUI = (function () {
   function deleteMember(id) { if (confirm('確定移除此旅伴？')) Store.mutate([{ table: 'Members', type: 'delete', id }]); }
 
   function initEvents() {
-    document.getElementById('mainNav').addEventListener('click', e => { if (e.target.classList.contains('nav-tab')) switchTab(e.target.dataset.tab); });
+    document.getElementById('mainNav').addEventListener('click', e => {
+      if (e.target.classList.contains('nav-tab')) {
+        if (e.target.dataset.tab === 'add-expense') openNewExpense();
+        else switchTab(e.target.dataset.tab);
+      }
+    });
     document.getElementById('activeTripSelect').addEventListener('change', e => Store.setActiveTripId(e.target.value));
     document.getElementById('btnManualSync').addEventListener('click', () => Store.pullFromCloud());
     ['filterKeyword', 'filterPayer', 'filterMethod'].forEach(id => document.getElementById(id).addEventListener('input', renderAll));
@@ -467,6 +472,7 @@ window.AppUI = (function () {
         ...itemRecords.map(r => ({ table: 'ExpenseItems', type: 'upsert', record: r })),
         ...allocRecords.map(r => ({ table: 'Allocations', type: 'upsert', record: r }))
       ]);
+      openNewExpense();
       switchTab('expenses');
     });
 
