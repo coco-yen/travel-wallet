@@ -473,6 +473,23 @@ window.AppUI = (function () {
     ['payOriginalAmount', 'payExchangeRate'].forEach(id => document.getElementById(id).addEventListener('input', () => {
       document.getElementById('payTwdAmount').value = Engine.roundAmount(Number(document.getElementById('payOriginalAmount').value || 0) * Number(document.getElementById('payExchangeRate').value || 1), 0);
     }));
+    function bindCurrencyAutoRate(currId, rateId, origId, twdId) {
+      const currEl = document.getElementById(currId);
+      if (!currEl) return;
+      currEl.addEventListener('change', () => {
+        const found = Store.DEFAULT_CURRENCIES.find(c => c.code === currEl.value);
+        const newRate = currEl.value === 'TWD' ? 1 : (found ? found.defaultRate : 1);
+        document.getElementById(rateId).value = newRate;
+        const orig = Number(document.getElementById(origId).value || 0);
+        if (orig > 0) {
+          document.getElementById(twdId).value = Engine.roundAmount(orig * newRate, 0);
+        }
+      });
+    }
+    bindCurrencyAutoRate('expCurrency', 'expExchangeRate', 'expOriginalAmount', 'expTwdAmount');
+    bindCurrencyAutoRate('payCurrency', 'payExchangeRate', 'payOriginalAmount', 'payTwdAmount');
+    bindCurrencyAutoRate('taxCurrency', 'taxExchangeRate', 'taxRefundOriginal', 'taxRefundTwd');
+    
     document.getElementById('paymentForm').addEventListener('submit', e => {
       e.preventDefault();
       const fromId = document.getElementById('payFromMember').value, toId = document.getElementById('payToMember').value;
