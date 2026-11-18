@@ -5,6 +5,16 @@ window.AppUI = (function () {
   function fmt(n) { return Number(n || 0).toLocaleString('zh-TW', { maximumFractionDigits: 2 }); }
   function nowLocalInput() { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); }
 
+  function toLocalInputVal(val) {
+    if (!val) return nowLocalInput();
+    const s = String(val).trim();
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) return s;
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return s.slice(0, 16);
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 16);
+  }
+  
   function getTripScopedData() {
     const full = Store.getState(), tripId = Store.getActiveTripId();
     return {
@@ -228,7 +238,7 @@ window.AppUI = (function () {
     const data = getTripScopedData(), exp = data.Expenses.find(e => e.id === expenseId);
     if (!exp) return;
     document.getElementById('expId').value = exp.id;
-    document.getElementById('expDateTime').value = exp.dateTime;
+    document.getElementById('expDateTime').value = toLocalInputVal(exp.dateTime);
     document.getElementById('expMerchant').value = exp.merchantName;
     document.getElementById('expPayer').value = exp.payerMemberId;
     document.getElementById('expMethod').value = exp.paymentMethod;
