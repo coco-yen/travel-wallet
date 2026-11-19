@@ -41,10 +41,7 @@ window.TravelExporter = (function () {
   }
 
   function exportExcelWorkbook(tripState, settlement) {
-    if (typeof XLSX === 'undefined') {
-      alert('Excel 套件載入中，請稍候或使用 CSV 匯出');
-      return;
-    }
+    if (typeof XLSX === 'undefined') { alert('Excel 套件載入中，請稍候或使用 CSV 匯出'); return; }
     const wb = XLSX.utils.book_new();
     const memberMap = Object.fromEntries((tripState.Members || []).map(m => [m.id, m.name]));
     const addSheet = (name, rows) => XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(rows.length ? rows : [{ 提示: '無資料' }]), name.slice(0, 31));

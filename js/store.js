@@ -223,7 +223,7 @@ window.TravelStore = (function () {
   }
 
   function setActiveTripId(tripId) { localStorage.setItem('tw_active_trip_id', tripId); notify(); }
-  function exportJsonBackup() { return JSON.stringify({ app: 'Travel Wallet (iPhone Pro Edition)', schemaVersion: '5.0', exportedAt: new Date().toISOString(), data: state }, null, 2); }
+  function exportJsonBackup() { return JSON.stringify({ app: 'Travel Wallet (iPhone Pro Edition)', schemaVersion: '6.0', exportedAt: new Date().toISOString(), data: state }, null, 2); }
   async function importJsonBackup(jsonText) {
     const parsed = JSON.parse(jsonText);
     const incoming = parsed.data || parsed;
@@ -244,50 +244,7 @@ window.TravelStore = (function () {
         { id: 'mem_b', tripId, name: '阿明 (B)', avatarColor: '#8B5E3C', note: '現金擔當', isActive: true, version: 1, createdAt: now, updatedAt: now },
         { id: 'mem_c', tripId, name: '小美 (C)', avatarColor: '#D99B52', note: '藥妝採購', isActive: true, version: 1, createdAt: now, updatedAt: now }
       ],
-      Expenses: [
-        { id: 'exp_case_a', tripId, dateTime: '2026-11-10T12:30', merchantName: '一蘭拉麵 新宿店 (案例A)', payerMemberId: 'mem_a', paymentMethod: 'credit_card', cardNote: '富邦 J 卡', transitCardName: '', currency: 'JPY', originalAmount: 3000, exchangeRate: 0.22, twdAmount: 660, discountOriginal: 0, taxOriginal: 0, feeOriginal: 0, receiptImageData: '', note: 'A 刷卡 3,000 JPY，B 當場給 A 1,000 JPY 現金', version: 1, createdAt: now, updatedAt: now },
-        { id: 'exp_case_b', tripId, dateTime: '2026-11-10T15:00', merchantName: '東京芭娜娜伴手禮 (案例B)', payerMemberId: 'mem_a', paymentMethod: 'cash', cardNote: '', transitCardName: '', currency: 'JPY', originalAmount: 3600, exchangeRate: 0.22, twdAmount: 792, discountOriginal: 0, taxOriginal: 0, feeOriginal: 0, receiptImageData: '', note: '共買 3 盒，A 1 盒、B 2 盒', version: 1, createdAt: now, updatedAt: now },
-        { id: 'exp_case_c1', tripId, dateTime: '2026-11-11T14:20', merchantName: '松本清 銀座旗艦店 (案例C/複合退稅店1)', payerMemberId: 'mem_a', paymentMethod: 'credit_card', cardNote: '國泰 CUBE 卡', transitCardName: '', currency: 'JPY', originalAmount: 11000, exchangeRate: 0.22, twdAmount: 2420, discountOriginal: 0, taxOriginal: 0, feeOriginal: 0, receiptImageData: '', note: '10,000 日圓藥妝符合退稅，1,000 日圓現場飲品不符合退稅', version: 1, createdAt: now, updatedAt: now },
-        { id: 'exp_case_c2', tripId, dateTime: '2026-11-11T19:45', merchantName: '唐吉訶德 澀谷店 (複合退稅店2)', payerMemberId: 'mem_c', paymentMethod: 'credit_card', cardNote: '玉山熊本熊卡', transitCardName: '', currency: 'JPY', originalAmount: 6000, exchangeRate: 0.22, twdAmount: 1320, discountOriginal: 0, taxOriginal: 0, feeOriginal: 0, receiptImageData: '', note: '跨店合併機場退稅收據 2', version: 1, createdAt: now, updatedAt: now },
-        { id: 'exp_case_d', tripId, dateTime: '2026-11-12T09:15', merchantName: 'Suica 儲值與特快車票 (案例D)', payerMemberId: 'mem_a', paymentMethod: 'transit_card', cardNote: '', transitCardName: 'Mobile Suica', currency: 'JPY', originalAmount: 5000, exchangeRate: 0.25, twdAmount: 1250, discountOriginal: 0, taxOriginal: 0, feeOriginal: 0, receiptImageData: '', note: '實際台幣扣款 1,250 元，測試精確分帳', version: 1, createdAt: now, updatedAt: now }
-      ],
-      ExpenseItems: [
-        { id: 'itm_a1', expenseId: 'exp_case_a', tripId, originalName: '天然とんこつラーメン x2', zhName: '天然豚骨拉麵 2碗', quantity: 2, unitPriceOriginal: 1500, subtotalOriginal: 3000, allocatedTwd: 660, isTaxRefundEligible: false, uncertain: false, version: 1, createdAt: now, updatedAt: now },
-        { id: 'itm_b1', expenseId: 'exp_case_b', tripId, originalName: '東京ばな奈 8個入', zhName: '東京芭娜娜禮盒 (8入)', quantity: 3, unitPriceOriginal: 1200, subtotalOriginal: 3600, allocatedTwd: 792, isTaxRefundEligible: false, uncertain: false, version: 1, createdAt: now, updatedAt: now },
-        { id: 'itm_c1_1', expenseId: 'exp_case_c1', tripId, originalName: 'アリナミンEXプラス', zhName: '合利他命 EX Plus (可退稅)', quantity: 2, unitPriceOriginal: 5000, subtotalOriginal: 10000, allocatedTwd: 2200, isTaxRefundEligible: true, uncertain: false, version: 1, createdAt: now, updatedAt: now },
-        { id: 'itm_c1_2', expenseId: 'exp_case_c1', tripId, originalName: 'ミネラルウォーター', zhName: '礦泉水現場飲用 (不可退稅)', quantity: 5, unitPriceOriginal: 200, subtotalOriginal: 1000, allocatedTwd: 220, isTaxRefundEligible: false, uncertain: false, version: 1, createdAt: now, updatedAt: now },
-        { id: 'itm_c2_1', expenseId: 'exp_case_c2', tripId, originalName: '抹茶お菓子セット', zhName: '宇治抹茶零食組 (可退稅)', quantity: 1, unitPriceOriginal: 6000, subtotalOriginal: 6000, allocatedTwd: 1320, isTaxRefundEligible: true, uncertain: false, version: 1, createdAt: now, updatedAt: now },
-        { id: 'itm_d1', expenseId: 'exp_case_d', tripId, originalName: '成田エクスプレス特急券', zhName: 'N’EX 成田特快車票 (3人)', quantity: 3, unitPriceOriginal: 1666.67, subtotalOriginal: 5000, allocatedTwd: 1250, isTaxRefundEligible: false, uncertain: false, version: 1, createdAt: now, updatedAt: now }
-      ],
-      Allocations: [
-        { id: 'alc_a1', expenseId: 'exp_case_a', expenseItemId: 'itm_a1', tripId, memberId: 'mem_a', splitType: 'equal', allocatedQty: 1, allocatedOriginal: 1500, allocatedTwd: 330, version: 1, createdAt: now, updatedAt: now },
-        { id: 'alc_a2', expenseId: 'exp_case_a', expenseItemId: 'itm_a1', tripId, memberId: 'mem_b', splitType: 'equal', allocatedQty: 1, allocatedOriginal: 1500, allocatedTwd: 330, version: 1, createdAt: now, updatedAt: now },
-        { id: 'alc_b1', expenseId: 'exp_case_b', expenseItemId: 'itm_b1', tripId, memberId: 'mem_a', splitType: 'quantity', allocatedQty: 1, allocatedOriginal: 1200, allocatedTwd: 264, version: 1, createdAt: now, updatedAt: now },
-        { id: 'alc_b2', expenseId: 'exp_case_b', expenseItemId: 'itm_b1', tripId, memberId: 'mem_b', splitType: 'quantity', allocatedQty: 2, allocatedOriginal: 2400, allocatedTwd: 528, version: 1, createdAt: now, updatedAt: now },
-        { id: 'alc_c1_1', expenseId: 'exp_case_c1', expenseItemId: 'itm_c1_1', tripId, memberId: 'mem_a', splitType: 'equal', allocatedQty: 1, allocatedOriginal: 5000, allocatedTwd: 1100, version: 1, createdAt: now, updatedAt: now },
-        { id: 'alc_c1_2', expenseId: 'exp_case_c1', expenseItemId: 'itm_c1_1', tripId, memberId: 'mem_c', splitType: 'equal', allocatedQty: 1, allocatedOriginal: 5000, allocatedTwd: 1100, version: 1, createdAt: now, updatedAt: now },
-        { id: 'alc_c1_3', expenseId: 'exp_case_c1', expenseItemId: 'itm_c1_2', tripId, memberId: 'mem_b', splitType: 'personal', allocatedQty: 5, allocatedOriginal: 1000, allocatedTwd: 220, version: 1, createdAt: now, updatedAt: now },
-        { id: 'alc_c2_1', expenseId: 'exp_case_c2', expenseItemId: 'itm_c2_1', tripId, memberId: 'mem_b', splitType: 'equal', allocatedQty: 0.5, allocatedOriginal: 3000, allocatedTwd: 660, version: 1, createdAt: now, updatedAt: now },
-        { id: 'alc_c2_2', expenseId: 'exp_case_c2', expenseItemId: 'itm_c2_1', tripId, memberId: 'mem_c', splitType: 'equal', allocatedQty: 0.5, allocatedOriginal: 3000, allocatedTwd: 660, version: 1, createdAt: now, updatedAt: now },
-        { id: 'alc_d1', expenseId: 'exp_case_d', expenseItemId: 'itm_d1', tripId, memberId: 'mem_a', splitType: 'equal', allocatedQty: 1, allocatedOriginal: 1666.67, allocatedTwd: 417, version: 1, createdAt: now, updatedAt: now },
-        { id: 'alc_d2', expenseId: 'exp_case_d', expenseItemId: 'itm_d1', tripId, memberId: 'mem_b', splitType: 'equal', allocatedQty: 1, allocatedOriginal: 1666.67, allocatedTwd: 417, version: 1, createdAt: now, updatedAt: now },
-        { id: 'alc_d3', expenseId: 'exp_case_d', expenseItemId: 'itm_d1', tripId, memberId: 'mem_c', splitType: 'equal', allocatedQty: 1, allocatedOriginal: 1666.66, allocatedTwd: 416, version: 1, createdAt: now, updatedAt: now }
-      ],
-      Payments: [
-        { id: 'pay_a1', tripId, dateTime: '2026-11-10T12:35', fromMemberId: 'mem_b', toMemberId: 'mem_a', currency: 'JPY', originalAmount: 1000, exchangeRate: 0.22, twdAmount: 220, paymentMethod: 'cash', relatedExpenseId: 'exp_case_a', note: '拉麵店現場給 A 1,000 日圓', version: 1, createdAt: now, updatedAt: now },
-        { id: 'pay_e1', tripId, dateTime: '2026-11-10T20:00', fromMemberId: 'mem_c', toMemberId: 'mem_a', currency: 'TWD', originalAmount: 200, exchangeRate: 1, twdAmount: 200, paymentMethod: 'bank_transfer', relatedExpenseId: '', note: '分次還款第 1 筆', version: 1, createdAt: now, updatedAt: now },
-        { id: 'pay_e2', tripId, dateTime: '2026-11-11T21:00', fromMemberId: 'mem_c', toMemberId: 'mem_a', currency: 'TWD', originalAmount: 300, exchangeRate: 1, twdAmount: 300, paymentMethod: 'bank_transfer', relatedExpenseId: '', note: '分次還款第 2 筆', version: 1, createdAt: now, updatedAt: now },
-        { id: 'pay_e3', tripId, dateTime: '2026-11-12T10:00', fromMemberId: 'mem_c', toMemberId: 'mem_a', currency: 'TWD', originalAmount: 150, exchangeRate: 1, twdAmount: 150, paymentMethod: 'cash', relatedExpenseId: '', note: '分次還款第 3 筆', version: 1, createdAt: now, updatedAt: now }
-      ],
-      Taxes: [
-        { id: 'tax_narita_1', tripId, dateTime: '2026-11-12T11:00', title: '成田機場第2航廈合併退稅單 (案例C/多店退稅)', refundType: 'post_refund', status: 'refunded', currency: 'JPY', totalRefundOriginal: 1600, exchangeRate: 0.22, totalRefundTwd: 352, receiverMemberId: 'mem_a', allocationMode: 'proportional_auto', receiptImageData: '', note: '合併松本清(10,000 JPY)與唐吉訶德(6,000 JPY)退稅', version: 1, createdAt: now, updatedAt: now }
-      ],
-      TaxExpenseLinks: [
-        { id: 'tl_1', taxId: 'tax_narita_1', expenseId: 'exp_case_c1', tripId, merchantName: '松本清 銀座旗艦店', eligibleSubtotalOriginal: 10000, allocatedRefundOriginal: 1000, allocatedRefundTwd: 220, isEstimated: true, version: 1, createdAt: now, updatedAt: now },
-        { id: 'tl_2', taxId: 'tax_narita_1', expenseId: 'exp_case_c2', tripId, merchantName: '唐吉訶德 澀谷店', eligibleSubtotalOriginal: 6000, allocatedRefundOriginal: 600, allocatedRefundTwd: 132, isEstimated: true, version: 1, createdAt: now, updatedAt: now }
-      ],
-      TaxItemAllocations: [],
-      Settlements: []
+      Expenses: [], ExpenseItems: [], Allocations: [], Payments: [], Taxes: [], TaxExpenseLinks: [], TaxItemAllocations: [], Settlements: []
     };
     setActiveTripId(tripId); notify();
   }

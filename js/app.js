@@ -91,7 +91,19 @@ window.AppUI = (function () {
     const byCurr = {};
     data.Expenses.forEach(e => { const c = e.currency || 'TWD'; if (!byCurr[c]) byCurr[c] = { orig: 0, twd: 0 }; byCurr[c].orig += Number(e.originalAmount || 0); byCurr[c].twd += Number(e.twdAmount || 0); });
     document.getElementById('currencyBreakdownBody').innerHTML = Object.entries(byCurr).map(([c, v]) => `<tr><td><span class="badge">${c}</span></td><td class="num">${fmt(v.orig)}</td><td class="num">NT$ ${fmt(v.twd)}</td></tr>`).join('') || '<tr><td colspan="3">尚無資料</td></tr>';
-    document.getElementById('overviewMemberBody').innerHTML = settlement.summaries.map(m => `<tr><td><strong>${m.name}</strong></td><td class="num">NT$ ${fmt(m.netShareTwd)}</td><td class="num">NT$ ${fmt(m.totalContributionTwd)}</td><td class="num ${m.netBalanceTwd >= 0 ? 'pos-amt' : 'neg-amt'}">${m.netBalanceTwd >= 0 ? '+應收 ' : '-應付 '}NT$ ${fmt(Math.abs(m.netBalanceTwd))}</td></tr>`).join('');
+
+    document.getElementById('overviewMemberList').innerHTML = settlement.summaries.map(m => `
+      <div class="member-balance-row">
+        <div class="member-balance-left">
+          <div class="member-balance-name">${m.name}</div>
+          <div class="member-balance-sub">應負擔 NT$ ${fmt(m.netShareTwd)} · 已墊付 NT$ ${fmt(m.totalContributionTwd)}</div>
+        </div>
+        <div class="member-balance-right ${m.netBalanceTwd >= 0 ? 'pos-amt' : 'neg-amt'}">
+          <div style="font-size:0.74rem;">${m.netBalanceTwd >= 0 ? '應收款' : '應付款'}</div>
+          <div style="font-size:1.05rem;">NT$ ${fmt(Math.abs(m.netBalanceTwd))}</div>
+        </div>
+      </div>
+    `).join('') || '<div style="font-size:0.84rem;color:var(--brown-light);">尚無旅伴資料</div>';
   }
 
   function renderExpensesList(data, settlement) {
@@ -245,7 +257,28 @@ window.AppUI = (function () {
       ? '<div class="item-box">目前所有旅伴帳務已完全平衡！</div>'
       : settlement.suggestedTransfers.map(tr => `<div class="item-box" style="display:flex;flex-direction:column;gap:10px;"><div><strong>${tr.fromName}</strong> 應轉帳給 <strong>${tr.toName}</strong> <span class="pos-amt" style="margin-left:8px;font-size:1.1rem;">NT$ ${fmt(tr.twdAmount)}</span></div><button class="btn btn-primary btn-block-mobile" onclick="window.AppUI.confirmSettlementTransfer('${tr.fromMemberId}', '${tr.toMemberId}', ${tr.twdAmount})">確認完成轉帳</button></div>`).join('');
 
-    document.getElementById('settlementTableBody').innerHTML = settlement.summaries.map(s => `<tr><td><strong>${s.name}</strong></td><td class="num">NT$ ${fmt(s.paidForExpensesTwd)}</td><td class="num">NT$ ${fmt(s.transfersSentTwd)}</td><td class="num">NT$ ${fmt(s.transfersReceivedTwd)}</td><td class="num">NT$ ${fmt(s.taxRefundReceivedTwd)}</td><td class="num">NT$ ${fmt(s.grossShareTwd)}</td><td class="num">NT$ ${fmt(s.taxRefundBenefitTwd)}</td><td class="num ${s.netBalanceTwd >= 0 ? 'pos-amt' : 'neg-amt'}">${s.netBalanceTwd >= 0 ? '+應收 ' : '-應付 '}NT$ ${fmt(Math.abs(s.netBalanceTwd))}</td><td><button class="btn btn-secondary btn-sm" onclick="window.AppUI.showMemberTrace('${s.memberId}')">明細</button></td></tr>`).join('');
+    document.getElementById('settlementMobileCards').innerHTML = settlement.summaries.map(s => `
+      <div class="mobile-expense-card">
+        <div class="mobile-expense-top">
+          <div style="min-width:0;flex:1;">
+            <div style="font-weight:700;font-size:1rem;">${s.name}</div>
+            <div style="font-size:0.78rem;color:var(--brown-mid);margin-top:2px;">
+              消費代墊 NT$ ${fmt(s.paidForExpensesTwd)} · 淨應負擔 NT$ ${fmt(s.netShareTwd)}
+            </div>
+            <div style="font-size:0.76rem;color:var(--brown-light);margin-top:2px;">
+              已轉出 NT$ ${fmt(s.transfersSentTwd)} · 已收到 NT$ ${fmt(s.transfersReceivedTwd)} · 退稅折抵 NT$ ${fmt(s.taxRefundBenefitTwd)}
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;">
+            <div style="font-size:0.74rem;" class="${s.netBalanceTwd >= 0 ? 'pos-amt' : 'neg-amt'}">${s.netBalanceTwd >= 0 ? '+應收' : '-應付'}</div>
+            <div style="font-size:1.05rem;" class="${s.netBalanceTwd >= 0 ? 'pos-amt' : 'neg-amt'}">NT$ ${fmt(Math.abs(s.netBalanceTwd))}</div>
+          </div>
+        </div>
+        <div class="mobile-expense-actions">
+          <button class="btn btn-secondary btn-sm" onclick="window.AppUI.showMemberTrace('${s.memberId}')">查看帳務追溯明細 (${s.traces.length}筆)</button>
+        </div>
+      </div>
+    `).join('') || '<div class="alert-box">尚無結算資料</div>';
   }
 
   function renderSettingsPage(data, sync) {
@@ -463,7 +496,7 @@ window.AppUI = (function () {
   function showMemberTrace(memberId) {
     const data = getTripScopedData(), settlement = Engine.calculateTripSettlement(data), m = settlement.summaries.find(s => s.memberId === memberId);
     if (!m) return;
-    document.getElementById('memberTraceDrawer').innerHTML = `<div class="item-box"><div style="display:flex;justify-content:space-between;margin-bottom:8px;"><strong>${m.name} 的帳務追溯明細</strong><button class="btn btn-secondary btn-sm" onclick="document.getElementById('memberTraceDrawer').innerHTML=''">關閉</button></div><div class="table-wrap"><table><thead><tr><th>日期</th><th>說明</th><th class="num">金額 (TWD)</th></tr></thead><tbody>${m.traces.map(t => `<tr><td>${formatDisplayDateTime(t.dateTime)}</td><td>${t.label}</td><td class="num ${t.amountTwd >= 0 ? 'pos-amt' : 'neg-amt'}">${t.amountTwd >= 0 ? '+' : ''}${fmt(t.amountTwd)}</td></tr>`).join('')}</tbody></table></div></div>`;
+    document.getElementById('memberTraceDrawer').innerHTML = `<div class="item-box"><div style="display:flex;justify-content:space-between;margin-bottom:8px;"><strong>${m.name} 的帳務追溯明細</strong><button class="btn btn-secondary btn-sm" onclick="document.getElementById('memberTraceDrawer').innerHTML=''">關閉</button></div>${m.traces.map(t => `<div style="display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--bg-beige);font-size:0.84rem;gap:8px;"><div><div>${t.label}</div><div style="font-size:0.74rem;color:var(--brown-light);">${formatDisplayDateTime(t.dateTime)}</div></div><div class="num ${t.amountTwd >= 0 ? 'pos-amt' : 'neg-amt'}">${t.amountTwd >= 0 ? '+' : ''}${fmt(t.amountTwd)}</div></div>`).join('')}</div>`;
   }
   function deleteMember(id) { if (confirm('確定移除此旅伴？')) Store.mutate([{ table: 'Members', type: 'delete', id }]); }
 
