@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="theme-color" content="#FFFFFF" />
   <title>Travel Wallet｜多人旅遊費用與複合退稅管理</title>
-  <link rel="stylesheet" href="css/styles.css?v=5" />
+  <link rel="stylesheet" href="css/styles.css?v=6" />
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
 </head>
 <body>
@@ -45,11 +45,17 @@
       <div class="form-grid">
         <div class="card">
           <div class="card-header"><h2 class="card-title">各幣別消費統計</h2></div>
-          <div class="table-wrap"><table><thead><tr><th>幣別</th><th class="num">原幣總額</th><th class="num">折合台幣</th></tr></thead><tbody id="currencyBreakdownBody"></tbody></table></div>
+          <div class="table-wrap">
+            <table>
+              <colgroup><col style="width:26%"/><col style="width:37%"/><col style="width:37%"/></colgroup>
+              <thead><tr><th>幣別</th><th class="num">原幣總額</th><th class="num">折合台幣</th></tr></thead>
+              <tbody id="currencyBreakdownBody"></tbody>
+            </table>
+          </div>
         </div>
         <div class="card">
           <div class="card-header"><h2 class="card-title">旅伴即時餘額概況 (TWD)</h2></div>
-          <div class="table-wrap"><table><thead><tr><th>旅伴</th><th class="num">淨應負擔</th><th class="num">已墊付淨額</th><th class="num">最終餘額</th></tr></thead><tbody id="overviewMemberBody"></tbody></table></div>
+          <div id="overviewMemberList"></div>
         </div>
       </div>
     </section>
@@ -206,12 +212,7 @@
       <div class="card"><div class="card-header"><h2 class="card-title">最佳化轉帳建議（最少轉帳次數）</h2></div><div id="suggestedTransfersContainer"></div></div>
       <div class="card">
         <div class="card-header"><h2 class="card-title">每位成員完整帳務總表與明細追溯 (TWD)</h2></div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>旅伴</th><th class="num">消費代墊</th><th class="num">已轉出</th><th class="num">已收到</th><th class="num">代收退稅</th><th class="num">消費分攤</th><th class="num">退稅折抵</th><th class="num">最終餘額</th><th>追溯</th></tr></thead>
-            <tbody id="settlementTableBody"></tbody>
-          </table>
-        </div>
+        <div id="settlementMobileCards"></div>
         <div id="memberTraceDrawer" style="margin-top:16px;"></div>
       </div>
     </section>
@@ -285,9 +286,9 @@
     </section>
   </main>
 
-  <script src="js/engine.js?v=5"></script>
-  <script src="js/store.js?v=5"></script>
-  <script src="js/exporter.js?v=5"></script>
-  <script src="js/app.js?v=5"></script>
+  <script src="js/engine.js?v=6"></script>
+  <script src="js/store.js?v=6"></script>
+  <script src="js/exporter.js?v=6"></script>
+  <script src="js/app.js?v=6"></script>
 </body>
 </html>
