@@ -9,22 +9,10 @@ window.TravelStore = (function () {
     { code: 'THB', name: '泰銖', symbol: '฿', defaultRate: 0.95 }
   ];
 
-  let userCredentials = {
-    gasUrl: '',
-    gasSecret: '',
-    userGeminiKey: '',
-    userOpenAIKey: ''
-  };
-
+  let userCredentials = { gasUrl: '', gasSecret: '', userGeminiKey: '', userOpenAIKey: '' };
   let state = { Trips: [], Members: [], Expenses: [], ExpenseItems: [], Allocations: [], Payments: [], Taxes: [], TaxExpenseLinks: [], TaxItemAllocations: [], Settlements: [], ExchangeRates: [], Settings: [] };
   let outbox = [];
-  let syncStatus = {
-    mode: 'offline_local',
-    lastSyncAt: null,
-    pendingCount: 0,
-    conflicts: [],
-    message: '本機獨立模式（請至「7. 資料與金鑰設定」貼上 Google Apps Script 網址啟用雲端同步）'
-  };
+  let syncStatus = { mode: 'offline_local', lastSyncAt: null, pendingCount: 0, conflicts: [], message: '本機獨立模式' };
   const listeners = new Set();
 
   function subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); }
@@ -50,15 +38,8 @@ window.TravelStore = (function () {
     } catch (e) {}
   }
 
-  function updateUserCredentials(partial) {
-    userCredentials = { ...userCredentials, ...partial };
-    saveLocalCache();
-    notify();
-  }
-
-  function hasGasConfigured() {
-    return Boolean(userCredentials.gasUrl && userCredentials.gasUrl.startsWith('https://script.google.com/'));
-  }
+  function updateUserCredentials(partial) { userCredentials = { ...userCredentials, ...partial }; saveLocalCache(); notify(); }
+  function hasGasConfigured() { return Boolean(userCredentials.gasUrl && userCredentials.gasUrl.startsWith('https://script.google.com/')); }
 
   async function callGasApi(payload) {
     if (!hasGasConfigured()) throw new Error('尚未設定 Google Apps Script 網址');
@@ -69,11 +50,7 @@ window.TravelStore = (function () {
     });
     const text = await res.text();
     let json;
-    try {
-      json = JSON.parse(text);
-    } catch (e) {
-      throw new Error('Google Apps Script 回傳非 JSON，請確認部署權限「誰可以存取」已設為「所有人」');
-    }
+    try { json = JSON.parse(text); } catch (e) { throw new Error('GAS 回傳非 JSON，請確認權限已設為「所有人」'); }
     if (!json.ok) throw new Error(json.message || 'Google Sheets API 錯誤');
     return json;
   }
@@ -81,16 +58,16 @@ window.TravelStore = (function () {
   async function pullFromCloud() {
     if (!hasGasConfigured()) {
       syncStatus.mode = 'offline_local';
-      syncStatus.message = '本機暫存模式（在「7. 資料與金鑰設定」貼上 GAS 網址即可多裝置雲端同步）';
+      syncStatus.message = '本機暫存模式（在「設定」貼上 GAS 網址即可同步）';
       notify();
       return false;
     }
-    syncStatus.mode = 'syncing'; syncStatus.message = '正在與 Google Sheets 同步...'; notify();
+    syncStatus.mode = 'syncing'; syncStatus.message = '同步 Google Sheets 中...'; notify();
     try {
       if (outbox.length > 0) await flushOutbox();
       const json = await callGasApi({ action: 'readAll' });
       Object.keys(state).forEach(t => { if (Array.isArray(json.data[t])) state[t] = json.data[t]; });
-      syncStatus.mode = 'online'; syncStatus.lastSyncAt = new Date().toLocaleTimeString('zh-TW');
+      syncStatus.mode = 'online'; syncStatus.lastSyncAt = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
       syncStatus.message = `已與 Google Sheets 同步 (${syncStatus.lastSyncAt})`;
       notify();
       return true;
@@ -108,19 +85,19 @@ window.TravelStore = (function () {
 
   async function flushOutbox() {
     if (outbox.length === 0 || !hasGasConfigured()) return;
-    syncStatus.mode = 'syncing'; syncStatus.message = `正在寫入 ${outbox.length} 筆異動至 Google Sheets...`; notify();
+    syncStatus.mode = 'syncing'; syncStatus.message = `正在寫入 ${outbox.length} 筆異動...`; notify();
     while (outbox.length > 0) {
       const batch = outbox[0];
       try {
         const json = await callGasApi({ action: 'syncBatch', idempotencyKey: batch.idempotencyKey, operations: batch.operations });
         if (json.conflicts && json.conflicts.length > 0) {
           syncStatus.conflicts = json.conflicts; syncStatus.mode = 'conflict';
-          syncStatus.message = '偵測到多裝置編輯衝突，請按「立即同步」更新';
+          syncStatus.message = '偵測到多裝置編輯衝突，請按「立即同步」';
           outbox.shift(); notify(); return;
         }
-        outbox.shift(); syncStatus.lastSyncAt = new Date().toLocaleTimeString('zh-TW');
+        outbox.shift(); syncStatus.lastSyncAt = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
       } catch (err) {
-        batch.retries += 1; syncStatus.mode = 'error'; syncStatus.message = `同步失敗重試中 (${batch.retries})：${err.message}`; notify();
+        batch.retries += 1; syncStatus.mode = 'error'; syncStatus.message = `同步重試中 (${batch.retries})：${err.message}`; notify();
         setTimeout(() => flushOutbox(), Math.min(30000, 1500 * Math.pow(2, batch.retries)));
         return;
       }
@@ -160,7 +137,7 @@ window.TravelStore = (function () {
       const mimeType = match ? match[1] : 'image/jpeg';
       const rawBase64 = match ? match[2] : imageBase64;
       const modelsToTry = ['gemini-3.8-flash', 'gemini-3.5-flash-lite'];
-      let lastErrorMsg = 'Gemini 伺服器忙碌中';
+      let lastErrorMsg = 'Gemini 伺服器忙碌中，請稍後再試';
 
       for (const modelName of modelsToTry) {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${encodeURIComponent(uGemini)}`;
@@ -216,7 +193,7 @@ window.TravelStore = (function () {
       return await callGasApi({ action: 'ocr', imageBase64, mode, provider });
     }
 
-    throw new Error('請先至「7. 資料與金鑰設定」貼上您自己的 Gemini API Key 或 OpenAI API Key（僅存於您的個人瀏覽器，不會外洩）。');
+    throw new Error('請先至「設定」貼上您自己的 Gemini API Key（AIzaSy... 開頭）或 OpenAI API Key。');
   }
 
   function mutate(operations) {
@@ -246,7 +223,7 @@ window.TravelStore = (function () {
   }
 
   function setActiveTripId(tripId) { localStorage.setItem('tw_active_trip_id', tripId); notify(); }
-  function exportJsonBackup() { return JSON.stringify({ app: 'Travel Wallet (GitHub Pages Edition)', schemaVersion: '2.0', exportedAt: new Date().toISOString(), data: state }, null, 2); }
+  function exportJsonBackup() { return JSON.stringify({ app: 'Travel Wallet (iPhone Pro Edition)', schemaVersion: '5.0', exportedAt: new Date().toISOString(), data: state }, null, 2); }
   async function importJsonBackup(jsonText) {
     const parsed = JSON.parse(jsonText);
     const incoming = parsed.data || parsed;

@@ -3,7 +3,12 @@ window.AppUI = (function () {
   let draftItems = [], currentReceiptBase64 = '', currentTaxReceiptBase64 = '';
 
   function fmt(n) { return Number(n || 0).toLocaleString('zh-TW', { maximumFractionDigits: 2 }); }
-  function nowLocalInput() { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 16); }
+
+  function nowLocalInput() {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+    return d.toISOString().slice(0, 16);
+  }
 
   function toLocalInputVal(val) {
     if (!val) return nowLocalInput();
@@ -14,7 +19,11 @@ window.AppUI = (function () {
     d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
     return d.toISOString().slice(0, 16);
   }
-  
+
+  function formatDisplayDateTime(val) {
+    return toLocalInputVal(val).replace('T', ' ');
+  }
+
   function getTripScopedData() {
     const full = Store.getState(), tripId = Store.getActiveTripId();
     return {
@@ -34,6 +43,7 @@ window.AppUI = (function () {
   function switchTab(tabName) {
     document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tabName));
     document.querySelectorAll('.page-section').forEach(sec => sec.classList.toggle('active', sec.id === `tab-${tabName}`));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     renderAll();
   }
 
@@ -69,12 +79,12 @@ window.AppUI = (function () {
     const allWarnings = [...settlement.expenseBreakdowns.flatMap(b => b.warnings), ...settlement.taxBreakdowns.flatMap(t => t.warnings)];
 
     document.getElementById('globalAlerts').innerHTML = allWarnings.length > 0
-      ? `<div class="alert-box"><strong>帳務提醒 (${allWarnings.length})：</strong><ul style="margin:6px 0 0 18px;">${allWarnings.map(w => `<li>${w}</li>`).join('')}</ul></div>` : '';
+      ? `<div class="alert-box"><strong>帳務提醒 (${allWarnings.length})：</strong><ul style="margin:6px 0 0 18px;padding:0;">${allWarnings.map(w => `<li>${w}</li>`).join('')}</ul></div>` : '';
 
     document.getElementById('overviewKpis').innerHTML = `
-      <div class="kpi-card"><div class="kpi-label">旅程總消費支出 (TWD)</div><div class="kpi-value">NT$ ${fmt(totalTwd)}</div><div class="kpi-sub">共 ${data.Expenses.length} 筆消費紀錄</div></div>
-      <div class="kpi-card"><div class="kpi-label">已確認退稅總額 (TWD)</div><div class="kpi-value">NT$ ${fmt(totalTaxTwd)}</div><div class="kpi-sub">已折抵各商品分帳</div></div>
-      <div class="kpi-card"><div class="kpi-label">待結算轉帳總額 (TWD)</div><div class="kpi-value">NT$ ${fmt(totalReceivable)}</div><div class="kpi-sub">最佳化建議 ${settlement.suggestedTransfers.length} 筆轉帳</div></div>
+      <div class="kpi-card"><div class="kpi-label">旅程總消費 (TWD)</div><div class="kpi-value">NT$ ${fmt(totalTwd)}</div><div class="kpi-sub">共 ${data.Expenses.length} 筆消費</div></div>
+      <div class="kpi-card"><div class="kpi-label">已確認退稅 (TWD)</div><div class="kpi-value">NT$ ${fmt(totalTaxTwd)}</div><div class="kpi-sub">已折抵各商品分帳</div></div>
+      <div class="kpi-card"><div class="kpi-label">待結算轉帳 (TWD)</div><div class="kpi-value">NT$ ${fmt(totalReceivable)}</div><div class="kpi-sub">建議 ${settlement.suggestedTransfers.length} 筆轉帳</div></div>
       <div class="kpi-card"><div class="kpi-label">旅伴人數</div><div class="kpi-value">${data.Members.length} 人</div><div class="kpi-sub">${data.Trip ? data.Trip.name : ''}</div></div>
     `;
 
@@ -98,11 +108,33 @@ window.AppUI = (function () {
       return true;
     }).sort((a, b) => (b.dateTime || '').localeCompare(a.dateTime || ''));
 
-    document.getElementById('expensesTableBody').innerHTML = filtered.map(e => {
+    document.getElementById('expensesMobileCards').innerHTML = filtered.map(e => {
       const bd = settlement.expenseBreakdowns.find(b => b.expenseId === e.id);
       const warnBadge = bd && bd.warnings.length > 0 ? `<span class="badge badge-warn">需確認分帳</span>` : '';
-      return `<tr><td>${(e.dateTime || '').replace('T', ' ')}</td><td><strong>${e.merchantName}</strong> ${warnBadge}<div style="font-size:0.78rem;color:var(--brown-light);">${e.note || ''}</div></td><td>${memberMap[e.payerMemberId] || e.payerMemberId}</td><td><span class="badge badge-brown">${methodLabel[e.paymentMethod] || e.paymentMethod}</span> ${e.cardNote || e.transitCardName || ''}</td><td class="num">${e.currency} ${fmt(e.originalAmount)}</td><td class="num">NT$ ${fmt(e.twdAmount)}</td><td><button class="btn btn-secondary btn-sm" onclick="window.AppUI.editExpense('${e.id}')">編輯</button> <button class="btn btn-danger btn-sm" onclick="window.AppUI.deleteExpense('${e.id}')">刪除</button></td></tr>`;
-    }).join('') || '<tr><td colspan="7">尚無符合條件的消費紀錄</td></tr>';
+      return `
+        <div class="mobile-expense-card">
+          <div class="mobile-expense-top">
+            <div style="min-width:0;flex:1;">
+              <div style="font-weight:700;font-size:1rem;word-break:break-word;">${e.merchantName} ${warnBadge}</div>
+              <div style="font-size:0.78rem;color:var(--brown-light);margin-top:2px;">${formatDisplayDateTime(e.dateTime)}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;">
+              <div style="font-weight:800;font-size:1.05rem;color:var(--caramel-dark);">NT$ ${fmt(e.twdAmount)}</div>
+              <div style="font-size:0.78rem;color:var(--brown-mid);">${e.currency} ${fmt(e.originalAmount)}</div>
+            </div>
+          </div>
+          <div class="mobile-expense-meta">
+            <span class="badge">付款：${memberMap[e.payerMemberId] || e.payerMemberId}</span>
+            <span class="badge badge-brown">${methodLabel[e.paymentMethod] || e.paymentMethod} ${e.cardNote || e.transitCardName || ''}</span>
+            ${e.note ? `<span>· ${e.note}</span>` : ''}
+          </div>
+          <div class="mobile-expense-actions">
+            <button class="btn btn-secondary btn-sm" onclick="window.AppUI.editExpense('${e.id}')">編輯明細</button>
+            <button class="btn btn-danger btn-sm" onclick="window.AppUI.deleteExpense('${e.id}')">刪除</button>
+          </div>
+        </div>
+      `;
+    }).join('') || '<div class="alert-box">尚無符合條件的消費紀錄</div>';
   }
 
   function renderExpenseFormContext(data) {
@@ -115,22 +147,22 @@ window.AppUI = (function () {
     const container = document.getElementById('expenseItemsContainer');
     if (draftItems.length === 0) { container.innerHTML = '<div class="alert-box">尚未新增商品品項，請點擊「+ 新增商品品項」或使用 AI 收據辨識。</div>'; return; }
     container.innerHTML = draftItems.map((item, idx) => {
-      const uncertainTag = item.uncertain ? `<span class="badge badge-danger">待確認：${item.uncertainReason || '欄位模糊，請對照收據修改'}</span>` : '';
+      const uncertainTag = item.uncertain ? `<span class="badge badge-danger">待確認：${item.uncertainReason || '欄位模糊'}</span>` : '';
       return `
         <div class="item-box">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px;">
             <strong>品項 #${idx + 1} ${uncertainTag}</strong>
-            <div style="display:flex;gap:8px;align-items:center;">
-              <label style="display:inline-flex;align-items:center;gap:4px;cursor:pointer;"><input type="checkbox" ${item.isTaxRefundEligible ? 'checked' : ''} onchange="window.AppUI.updateDraftItem(${idx}, 'isTaxRefundEligible', this.checked)" /> 符合退稅資格</label>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <label style="display:inline-flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" ${item.isTaxRefundEligible ? 'checked' : ''} onchange="window.AppUI.updateDraftItem(${idx}, 'isTaxRefundEligible', this.checked)" /> 可退稅</label>
               <button type="button" class="btn btn-danger btn-sm" onclick="window.AppUI.removeDraftItem(${idx})">移除</button>
             </div>
           </div>
           <div class="form-grid">
-            <div class="form-group"><label>商品原文名稱（可修改）</label><input type="text" value="${item.originalName || ''}" onchange="window.AppUI.updateDraftItem(${idx}, 'originalName', this.value)" /></div>
-            <div class="form-group"><label>繁體中文名稱（可修改） *</label><input type="text" value="${item.zhName || ''}" onchange="window.AppUI.updateDraftItem(${idx}, 'zhName', this.value)" required /></div>
-            <div class="form-group"><label>購買數量（可修改）</label><input type="number" step="0.01" value="${item.quantity ?? 1}" onchange="window.AppUI.updateDraftItem(${idx}, 'quantity', Number(this.value))" /></div>
-            <div class="form-group"><label>原幣單價（可修改）</label><input type="number" step="0.01" value="${item.unitPriceOriginal ?? 0}" onchange="window.AppUI.updateDraftItem(${idx}, 'unitPriceOriginal', Number(this.value))" /></div>
-            <div class="form-group"><label>原幣小計（可修改） *</label><input type="number" step="0.01" value="${item.subtotalOriginal ?? 0}" onchange="window.AppUI.updateDraftItem(${idx}, 'subtotalOriginal', Number(this.value))" /></div>
+            <div class="form-group"><label>商品原文名稱</label><input type="text" value="${item.originalName || ''}" onchange="window.AppUI.updateDraftItem(${idx}, 'originalName', this.value)" /></div>
+            <div class="form-group"><label>繁體中文名稱 *</label><input type="text" value="${item.zhName || ''}" onchange="window.AppUI.updateDraftItem(${idx}, 'zhName', this.value)" required /></div>
+            <div class="form-group"><label>購買數量</label><input type="number" inputmode="decimal" step="0.01" value="${item.quantity ?? 1}" onchange="window.AppUI.updateDraftItem(${idx}, 'quantity', Number(this.value))" /></div>
+            <div class="form-group"><label>原幣單價</label><input type="number" inputmode="decimal" step="0.01" value="${item.unitPriceOriginal ?? 0}" onchange="window.AppUI.updateDraftItem(${idx}, 'unitPriceOriginal', Number(this.value))" /></div>
+            <div class="form-group"><label>原幣小計 *</label><input type="number" inputmode="decimal" step="0.01" value="${item.subtotalOriginal ?? 0}" onchange="window.AppUI.updateDraftItem(${idx}, 'subtotalOriginal', Number(this.value))" /></div>
             <div class="form-group"><label>分帳方式</label>
               <select onchange="window.AppUI.changeItemSplitMode(${idx}, this.value)">
                 <option value="equal" ${item.splitMode === 'equal' ? 'selected' : ''}>勾選旅伴均分</option>
@@ -140,11 +172,11 @@ window.AppUI = (function () {
             </div>
           </div>
           <div class="member-chips">
-            ${members.map(m => {
+            ${members.length === 0 ? '<span style="font-size:0.82rem;color:var(--danger);">請先至「設定」新增此旅程的旅伴成員</span>' : members.map(m => {
               const alloc = (item.allocations || []).find(a => a.memberId === m.id);
               if (item.splitMode === 'equal') return `<label class="member-chip"><input type="checkbox" ${alloc ? 'checked' : ''} onchange="window.AppUI.toggleItemMemberEqual(${idx}, '${m.id}', this.checked)" /> ${m.name}</label>`;
-              if (item.splitMode === 'quantity') return `<div class="member-chip"><span>${m.name} 數量:</span><input type="number" step="0.5" min="0" style="width:65px;padding:4px;" value="${alloc ? alloc.allocatedQty : 0}" onchange="window.AppUI.setItemMemberValue(${idx}, '${m.id}', 'quantity', Number(this.value))" /></div>`;
-              return `<div class="member-chip"><span>${m.name} 原幣:</span><input type="number" step="0.01" min="0" style="width:80px;padding:4px;" value="${alloc ? alloc.allocatedOriginal : 0}" onchange="window.AppUI.setItemMemberValue(${idx}, '${m.id}', 'amount', Number(this.value))" /></div>`;
+              if (item.splitMode === 'quantity') return `<div class="member-chip"><span>${m.name} 數量:</span><input type="number" inputmode="decimal" step="0.5" min="0" style="width:72px;min-height:36px;padding:4px 8px;" value="${alloc ? alloc.allocatedQty : 0}" onchange="window.AppUI.setItemMemberValue(${idx}, '${m.id}', 'quantity', Number(this.value))" /></div>`;
+              return `<div class="member-chip"><span>${m.name} 原幣:</span><input type="number" inputmode="decimal" step="0.01" min="0" style="width:88px;min-height:36px;padding:4px 8px;" value="${alloc ? alloc.allocatedOriginal : 0}" onchange="window.AppUI.setItemMemberValue(${idx}, '${m.id}', 'amount', Number(this.value))" /></div>`;
             }).join('')}
           </div>
         </div>
@@ -156,11 +188,27 @@ window.AppUI = (function () {
     populateMemberSelect(document.getElementById('payFromMember'), data.Members);
     populateMemberSelect(document.getElementById('payToMember'), data.Members);
     populateCurrencySelect(document.getElementById('payCurrency'), 'JPY');
-    document.getElementById('payRelatedExpense').innerHTML = '<option value="">不指定單筆</option>' + data.Expenses.map(e => `<option value="${e.id}">${e.dateTime.slice(0, 10)} ${e.merchantName}</option>`).join('');
+    document.getElementById('payRelatedExpense').innerHTML = '<option value="">不指定單筆</option>' + data.Expenses.map(e => `<option value="${e.id}">${formatDisplayDateTime(e.dateTime).slice(0, 10)} ${e.merchantName}</option>`).join('');
     const memberMap = Object.fromEntries(data.Members.map(m => [m.id, m.name])), methodLabel = { cash: '現金', bank_transfer: '銀行轉帳', other: '其他' };
-    document.getElementById('paymentsTableBody').innerHTML = data.Payments.slice().sort((a, b) => (b.dateTime || '').localeCompare(a.dateTime || '')).map(p =>
-      `<tr><td>${(p.dateTime || '').replace('T', ' ')}</td><td><strong>${memberMap[p.fromMemberId] || p.fromMemberId}</strong></td><td><strong>${memberMap[p.toMemberId] || p.toMemberId}</strong></td><td><span class="badge badge-brown">${methodLabel[p.paymentMethod] || p.paymentMethod}</span></td><td class="num">${p.currency} ${fmt(p.originalAmount)}</td><td class="num">NT$ ${fmt(p.twdAmount)}</td><td>${p.note || ''}</td><td><button class="btn btn-danger btn-sm" onclick="window.AppUI.deletePayment('${p.id}')">刪除</button></td></tr>`
-    ).join('') || '<tr><td colspan="8">尚無收付款紀錄</td></tr>';
+
+    document.getElementById('paymentsMobileCards').innerHTML = data.Payments.slice().sort((a, b) => (b.dateTime || '').localeCompare(a.dateTime || '')).map(p => `
+      <div class="mobile-expense-card">
+        <div class="mobile-expense-top">
+          <div>
+            <strong>${memberMap[p.fromMemberId] || p.fromMemberId} → ${memberMap[p.toMemberId] || p.toMemberId}</strong>
+            <div style="font-size:0.78rem;color:var(--brown-light);">${formatDisplayDateTime(p.dateTime)} · ${methodLabel[p.paymentMethod] || p.paymentMethod}</div>
+          </div>
+          <div style="text-align:right;">
+            <div class="pos-amt">NT$ ${fmt(p.twdAmount)}</div>
+            <div style="font-size:0.78rem;color:var(--brown-mid);">${p.currency} ${fmt(p.originalAmount)}</div>
+          </div>
+        </div>
+        ${p.note ? `<div style="font-size:0.8rem;color:var(--brown-mid);margin-top:4px;">${p.note}</div>` : ''}
+        <div class="mobile-expense-actions">
+          <button class="btn btn-danger btn-sm" onclick="window.AppUI.deletePayment('${p.id}')">刪除</button>
+        </div>
+      </div>
+    `).join('') || '<div class="alert-box">尚無收付款紀錄</div>';
   }
 
   function renderTaxesPage(data, settlement) {
@@ -169,22 +217,23 @@ window.AppUI = (function () {
     const memberMap = Object.fromEntries(data.Members.map(m => [m.id, m.name]));
     document.getElementById('taxReceiptsSelector').innerHTML = data.Expenses.map(exp => {
       const expItems = data.ExpenseItems.filter(i => i.expenseId === exp.id);
-      return `<div class="item-box" style="padding:10px 14px;">
-        <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;">
-          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" class="tax-exp-check" data-exp-id="${exp.id}" /> <strong>${exp.merchantName}</strong> (${exp.dateTime.slice(0, 10)} · ${exp.currency} ${fmt(exp.originalAmount)})</label>
-          <div><span style="font-size:0.8rem;">此店實際退稅原幣:</span> <input type="number" step="0.01" class="tax-exp-manual-orig" data-exp-id="${exp.id}" placeholder="自動估算" style="width:105px;padding:4px;" /></div>
+      return `<div class="item-box" style="padding:12px;">
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.92rem;color:var(--brown-dark);"><input type="checkbox" class="tax-exp-check" data-exp-id="${exp.id}" /> <strong>${exp.merchantName}</strong> (${exp.currency} ${fmt(exp.originalAmount)})</label>
+          <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:0.8rem;white-space:nowrap;">此店實際退稅原幣:</span> <input type="number" inputmode="decimal" step="0.01" class="tax-exp-manual-orig" data-exp-id="${exp.id}" placeholder="留空自動估算" style="min-height:36px;padding:4px 8px;" /></div>
         </div>
-        <div style="margin-top:6px;padding-left:22px;">${expItems.map(it => `<label style="display:flex;align-items:center;gap:6px;font-size:0.84rem;"><input type="checkbox" class="tax-item-check" data-exp-id="${exp.id}" data-item-id="${it.id}" data-orig="${it.subtotalOriginal}" ${it.isTaxRefundEligible ? 'checked' : ''} /> ${it.zhName || it.originalName} (${exp.currency} ${fmt(it.subtotalOriginal)})</label>`).join('')}</div>
+        <div style="margin-top:8px;padding-left:10px;display:flex;flex-direction:column;gap:6px;">${expItems.map(it => `<label style="display:flex;align-items:center;gap:8px;font-size:0.86rem;"><input type="checkbox" class="tax-item-check" data-exp-id="${exp.id}" data-item-id="${it.id}" data-orig="${it.subtotalOriginal}" ${it.isTaxRefundEligible ? 'checked' : ''} /> ${it.zhName || it.originalName} (${exp.currency} ${fmt(it.subtotalOriginal)})</label>`).join('')}</div>
       </div>`;
     }).join('');
     const statusMap = { pending_match: '待配對', pending_confirm: '待確認', confirmed: '已確認', processing: '退款處理中', refunded: '已退款' };
     document.getElementById('taxesListContainer').innerHTML = data.Taxes.map(tax => {
       const bd = settlement.taxBreakdowns.find(b => b.taxId === tax.id);
       return `<div class="item-box">
-        <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
           <div><strong>${tax.title}</strong> <span class="badge">${statusMap[tax.status] || tax.status}</span></div>
-          <div><strong>退稅總額：${tax.currency} ${fmt(tax.totalRefundOriginal)} (NT$ ${fmt(tax.totalRefundTwd)})</strong> · 收款人：<strong>${memberMap[tax.receiverMemberId] || tax.receiverMemberId}</strong> <button class="btn btn-danger btn-sm" onclick="window.AppUI.deleteTax('${tax.id}')">刪除</button></div>
+          <button class="btn btn-danger btn-sm" onclick="window.AppUI.deleteTax('${tax.id}')">刪除</button>
         </div>
+        <div style="margin-top:6px;font-size:0.88rem;">退稅總額：<strong>${tax.currency} ${fmt(tax.totalRefundOriginal)} (NT$ ${fmt(tax.totalRefundTwd)})</strong> · 收款人：<strong>${memberMap[tax.receiverMemberId] || tax.receiverMemberId}</strong></div>
         <div style="margin-top:6px;font-size:0.84rem;color:var(--caramel-dark);"><strong>旅伴退稅折抵：</strong>${Object.entries(bd?.memberRefundTwd || {}).map(([mId, amt]) => `${memberMap[mId] || mId}: NT$ ${fmt(amt)}`).join('、') || '無'}</div>
       </div>`;
     }).join('') || '<p>尚無退稅紀錄。</p>';
@@ -194,9 +243,9 @@ window.AppUI = (function () {
     const transfersBox = document.getElementById('suggestedTransfersContainer');
     transfersBox.innerHTML = settlement.suggestedTransfers.length === 0
       ? '<div class="item-box">目前所有旅伴帳務已完全平衡！</div>'
-      : settlement.suggestedTransfers.map(tr => `<div class="item-box" style="display:flex;justify-content:space-between;align-items:center;"><div><strong>${tr.fromName}</strong> 應轉帳給 <strong>${tr.toName}</strong> <span class="pos-amt" style="margin-left:10px;">NT$ ${fmt(tr.twdAmount)}</span></div><button class="btn btn-primary btn-sm" onclick="window.AppUI.confirmSettlementTransfer('${tr.fromMemberId}', '${tr.toMemberId}', ${tr.twdAmount})">確認完成轉帳</button></div>`).join('');
+      : settlement.suggestedTransfers.map(tr => `<div class="item-box" style="display:flex;flex-direction:column;gap:10px;"><div><strong>${tr.fromName}</strong> 應轉帳給 <strong>${tr.toName}</strong> <span class="pos-amt" style="margin-left:8px;font-size:1.1rem;">NT$ ${fmt(tr.twdAmount)}</span></div><button class="btn btn-primary btn-block-mobile" onclick="window.AppUI.confirmSettlementTransfer('${tr.fromMemberId}', '${tr.toMemberId}', ${tr.twdAmount})">確認完成轉帳</button></div>`).join('');
 
-    document.getElementById('settlementTableBody').innerHTML = settlement.summaries.map(s => `<tr><td><strong>${s.name}</strong></td><td class="num">NT$ ${fmt(s.paidForExpensesTwd)}</td><td class="num">NT$ ${fmt(s.transfersSentTwd)}</td><td class="num">NT$ ${fmt(s.transfersReceivedTwd)}</td><td class="num">NT$ ${fmt(s.taxRefundReceivedTwd)}</td><td class="num">NT$ ${fmt(s.grossShareTwd)}</td><td class="num">NT$ ${fmt(s.taxRefundBenefitTwd)}</td><td class="num ${s.netBalanceTwd >= 0 ? 'pos-amt' : 'neg-amt'}">${s.netBalanceTwd >= 0 ? '+應收 ' : '-應付 '}NT$ ${fmt(Math.abs(s.netBalanceTwd))}</td><td><button class="btn btn-secondary btn-sm" onclick="window.AppUI.showMemberTrace('${s.memberId}')">明細追溯</button></td></tr>`).join('');
+    document.getElementById('settlementTableBody').innerHTML = settlement.summaries.map(s => `<tr><td><strong>${s.name}</strong></td><td class="num">NT$ ${fmt(s.paidForExpensesTwd)}</td><td class="num">NT$ ${fmt(s.transfersSentTwd)}</td><td class="num">NT$ ${fmt(s.transfersReceivedTwd)}</td><td class="num">NT$ ${fmt(s.taxRefundReceivedTwd)}</td><td class="num">NT$ ${fmt(s.grossShareTwd)}</td><td class="num">NT$ ${fmt(s.taxRefundBenefitTwd)}</td><td class="num ${s.netBalanceTwd >= 0 ? 'pos-amt' : 'neg-amt'}">${s.netBalanceTwd >= 0 ? '+應收 ' : '-應付 '}NT$ ${fmt(Math.abs(s.netBalanceTwd))}</td><td><button class="btn btn-secondary btn-sm" onclick="window.AppUI.showMemberTrace('${s.memberId}')">明細</button></td></tr>`).join('');
   }
 
   function renderSettingsPage(data, sync) {
@@ -208,15 +257,14 @@ window.AppUI = (function () {
       document.getElementById('credOpenAIKey').value = creds.userOpenAIKey || '';
     }
 
-    document.getElementById('membersListContainer').innerHTML = data.Members.map(m => `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--bg-beige);"><div><strong>${m.name}</strong> <span style="font-size:0.8rem;color:var(--brown-light);">${m.note || ''}</span></div><button class="btn btn-danger btn-sm" onclick="window.AppUI.deleteMember('${m.id}')">移除</button></div>`).join('');
+    document.getElementById('membersListContainer').innerHTML = data.Members.map(m => `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--bg-beige);"><div><strong>${m.name}</strong> <span style="font-size:0.8rem;color:var(--brown-light);">${m.note || ''}</span></div><button class="btn btn-danger btn-sm" onclick="window.AppUI.deleteMember('${m.id}')">移除</button></div>`).join('') || '<div style="font-size:0.84rem;color:var(--brown-light);">目前旅程尚無旅伴，請在上方新增</div>';
 
     document.getElementById('apiDiagnosticBox').innerHTML = `
-      <strong>目前瀏覽器工作階段的安全連線狀態：</strong>
-      <ul style="margin:6px 0 0 18px;font-size:0.86rem;">
-        <li>託管模式：<strong>GitHub Pages 純靜態前端（零暴露金鑰）</strong></li>
-        <li>Google Sheets 中央資料庫：<strong>${Store.hasGasConfigured() ? '已設定 Google Apps Script 網址' : '未設定（目前為本機瀏覽器暫存模式）'}</strong></li>
-        <li>Google Gemini 收據辨識：<strong>${creds.userGeminiKey ? '已設定您的個人 Gemini Key' : (Store.hasGasConfigured() ? '若 GAS 後端有設定 Key 亦可直接使用' : '尚未設定（請填入個人 Gemini Key）')}</strong></li>
-        <li>OpenAI Vision 收據辨識：<strong>${creds.userOpenAIKey ? '已設定您的個人 OpenAI Key' : '尚未設定'}</strong></li>
+      <strong>目前連線與安全狀態：</strong>
+      <ul style="margin:6px 0 0 18px;padding:0;font-size:0.84rem;">
+        <li>Google Sheets 資料庫：<strong>${Store.hasGasConfigured() ? '已連線設定' : '本機暫存模式'}</strong></li>
+        <li>Google Gemini 辨識：<strong>${creds.userGeminiKey ? '已設定個人 Gemini Key' : '尚未設定'}</strong></li>
+        <li>OpenAI Vision 辨識：<strong>${creds.userOpenAIKey ? '已設定個人 OpenAI Key' : '尚未設定'}</strong></li>
       </ul>
     `;
   }
@@ -227,6 +275,8 @@ window.AppUI = (function () {
     document.getElementById('expDateTime').value = nowLocalInput();
     document.getElementById('expenseFormTitle').textContent = '新增消費與品項分帳';
     currentReceiptBase64 = '';
+    const fileInput = document.getElementById('receiptFileInput');
+    if (fileInput) fileInput.value = '';
     document.getElementById('receiptPreviewBox').style.display = 'none';
     document.getElementById('receiptOcrReviewBanner').style.display = 'none';
     const members = getTripScopedData().Members;
@@ -251,7 +301,7 @@ window.AppUI = (function () {
     document.getElementById('expDiscount').value = exp.discountOriginal || 0;
     document.getElementById('expTaxFee').value = Number(exp.taxOriginal || 0) + Number(exp.feeOriginal || 0);
     document.getElementById('expNote').value = exp.note || '';
-    document.getElementById('expenseFormTitle').textContent = `編輯消費：${exp.merchantName}`;
+    document.getElementById('expenseFormTitle').textContent = `編輯：${exp.merchantName}`;
     draftItems = data.ExpenseItems.filter(i => i.expenseId === exp.id).map(it => {
       const itAllocs = data.Allocations.filter(a => a.expenseItemId === it.id);
       const mode = itAllocs[0]?.splitType === 'quantity' ? 'quantity' : itAllocs[0]?.splitType === 'amount' ? 'amount' : 'equal';
@@ -322,24 +372,26 @@ window.AppUI = (function () {
       currentReceiptBase64 = await fileToResizedBase64(fileInput.files[0]);
       const preview = document.getElementById('receiptPreviewBox');
       preview.style.display = 'block';
-      preview.innerHTML = `<div style="font-size:0.82rem;color:var(--brown-mid);margin-bottom:4px;"><strong>收據原始照片對照（點擊可放大檢視）：</strong></div>
-        <img src="${currentReceiptBase64}" onclick="window.open(this.src)" style="max-height:240px;cursor:zoom-in;border-radius:8px;border:1px solid var(--border-sand);" />`;
+      preview.innerHTML = `<div style="font-size:0.8rem;color:var(--brown-mid);margin-bottom:4px;"><strong>收據原始照片對照（點擊可放大）：</strong></div>
+        <img src="${currentReceiptBase64}" onclick="window.open(this.src)" style="max-height:200px;max-width:100%;cursor:zoom-in;border-radius:10px;border:1px solid var(--border-sand);" />`;
 
       const provider = document.getElementById('receiptAiProvider')?.value || 'auto';
       const json = await Store.runAiOcr({ imageBase64: currentReceiptBase64, mode: 'receipt', provider });
 
       const r = json.result;
-      const usedLabel = json.providerUsed === 'gemini' ? 'Google Gemini' : 'OpenAI Vision';
       const banner = document.getElementById('receiptOcrReviewBanner');
       banner.style.display = 'block';
       banner.innerHTML = `<div class="alert-box" style="margin-bottom:0;">
-        <strong>已完成辨識（引擎：${usedLabel}）</strong>｜
-        ${r.overallUncertain ? '<span class="badge badge-danger">部分欄位較模糊，請對照下方收據原圖修改</span>' : '所有辨識欄位皆已填入下方表單，您可直接修改品名、數量、金額或新增漏抓品項，確認無誤後再按儲存。'}
+        <strong>已完成辨識（${json.providerUsed}）</strong>｜
+        ${r.overallUncertain ? '<span class="badge badge-danger">部分欄位較模糊，請對照收據修改</span>' : '請核對下方預填內容並指定分帳旅伴後儲存。'}
       </div>`;
 
       if (r.merchantName) document.getElementById('expMerchant').value = r.merchantName;
-      if (r.dateTime) document.getElementById('expDateTime').value = r.dateTime.slice(0, 16);
-      if (r.currency) document.getElementById('expCurrency').value = r.currency;
+      if (r.dateTime) document.getElementById('expDateTime').value = toLocalInputVal(r.dateTime);
+      if (r.currency) {
+        document.getElementById('expCurrency').value = r.currency;
+        document.getElementById('expCurrency').dispatchEvent(new Event('change'));
+      }
       if (r.discountOriginal) document.getElementById('expDiscount').value = r.discountOriginal;
       document.getElementById('expTaxFee').value = Number(r.taxOriginal || 0) + Number(r.feeOriginal || 0);
 
@@ -381,14 +433,17 @@ window.AppUI = (function () {
       const json = await Store.runAiOcr({ imageBase64: currentTaxReceiptBase64, mode: 'tax', provider });
       const r = json.result;
       if (r.title) document.getElementById('taxTitle').value = r.title;
-      if (r.dateTime) document.getElementById('taxDateTime').value = r.dateTime.slice(0, 16);
-      if (r.currency) document.getElementById('taxCurrency').value = r.currency;
+      if (r.dateTime) document.getElementById('taxDateTime').value = toLocalInputVal(r.dateTime);
+      if (r.currency) {
+        document.getElementById('taxCurrency').value = r.currency;
+        document.getElementById('taxCurrency').dispatchEvent(new Event('change'));
+      }
       if (r.totalRefundOriginal) {
         document.getElementById('taxRefundOriginal').value = r.totalRefundOriginal;
         const rate = Number(document.getElementById('taxExchangeRate').value || 1);
         document.getElementById('taxRefundTwd').value = Engine.roundAmount(r.totalRefundOriginal * rate, 0);
       }
-      alert('退稅單辨識完成，請確認並修改欄位後勾選關聯收據。');
+      alert('退稅單辨識完成，請確認並勾選關聯收據。');
     } catch (err) {
       alert('退稅單辨識提示：' + err.message);
     } finally {
@@ -408,17 +463,19 @@ window.AppUI = (function () {
   function showMemberTrace(memberId) {
     const data = getTripScopedData(), settlement = Engine.calculateTripSettlement(data), m = settlement.summaries.find(s => s.memberId === memberId);
     if (!m) return;
-    document.getElementById('memberTraceDrawer').innerHTML = `<div class="item-box"><div style="display:flex;justify-content:space-between;margin-bottom:8px;"><strong>${m.name} 的帳務追溯明細</strong><button class="btn btn-secondary btn-sm" onclick="document.getElementById('memberTraceDrawer').innerHTML=''">關閉</button></div><table><thead><tr><th>日期</th><th>說明</th><th class="num">金額 (TWD)</th></tr></thead><tbody>${m.traces.map(t => `<tr><td>${(t.dateTime || '').replace('T', ' ')}</td><td>${t.label}</td><td class="num ${t.amountTwd >= 0 ? 'pos-amt' : 'neg-amt'}">${t.amountTwd >= 0 ? '+' : ''}${fmt(t.amountTwd)}</td></tr>`).join('')}</tbody></table></div>`;
+    document.getElementById('memberTraceDrawer').innerHTML = `<div class="item-box"><div style="display:flex;justify-content:space-between;margin-bottom:8px;"><strong>${m.name} 的帳務追溯明細</strong><button class="btn btn-secondary btn-sm" onclick="document.getElementById('memberTraceDrawer').innerHTML=''">關閉</button></div><div class="table-wrap"><table><thead><tr><th>日期</th><th>說明</th><th class="num">金額 (TWD)</th></tr></thead><tbody>${m.traces.map(t => `<tr><td>${formatDisplayDateTime(t.dateTime)}</td><td>${t.label}</td><td class="num ${t.amountTwd >= 0 ? 'pos-amt' : 'neg-amt'}">${t.amountTwd >= 0 ? '+' : ''}${fmt(t.amountTwd)}</td></tr>`).join('')}</tbody></table></div></div>`;
   }
   function deleteMember(id) { if (confirm('確定移除此旅伴？')) Store.mutate([{ table: 'Members', type: 'delete', id }]); }
 
   function initEvents() {
     document.getElementById('mainNav').addEventListener('click', e => {
-      if (e.target.classList.contains('nav-tab')) {
-        if (e.target.dataset.tab === 'add-expense') openNewExpense();
-        else switchTab(e.target.dataset.tab);
+      const tabBtn = e.target.closest('.nav-tab');
+      if (tabBtn) {
+        if (tabBtn.dataset.tab === 'add-expense') openNewExpense();
+        else switchTab(tabBtn.dataset.tab);
       }
     });
+
     document.getElementById('activeTripSelect').addEventListener('change', e => Store.setActiveTripId(e.target.value));
     document.getElementById('btnManualSync').addEventListener('click', () => Store.pullFromCloud());
     ['filterKeyword', 'filterPayer', 'filterMethod'].forEach(id => document.getElementById(id).addEventListener('input', renderAll));
@@ -427,6 +484,21 @@ window.AppUI = (function () {
       document.getElementById('cardNoteGroup').style.display = e.target.value === 'credit_card' ? 'flex' : 'none';
       document.getElementById('transitNoteGroup').style.display = e.target.value === 'transit_card' ? 'flex' : 'none';
     });
+
+    function bindCurrencyAutoRate(currId, rateId, origId, twdId) {
+      const currEl = document.getElementById(currId);
+      if (!currEl) return;
+      currEl.addEventListener('change', () => {
+        const found = Store.DEFAULT_CURRENCIES.find(c => c.code === currEl.value);
+        const newRate = currEl.value === 'TWD' ? 1 : (found ? found.defaultRate : 1);
+        document.getElementById(rateId).value = newRate;
+        const orig = Number(document.getElementById(origId).value || 0);
+        if (orig > 0) document.getElementById(twdId).value = Engine.roundAmount(orig * newRate, 0);
+      });
+    }
+    bindCurrencyAutoRate('expCurrency', 'expExchangeRate', 'expOriginalAmount', 'expTwdAmount');
+    bindCurrencyAutoRate('payCurrency', 'payExchangeRate', 'payOriginalAmount', 'payTwdAmount');
+    bindCurrencyAutoRate('taxCurrency', 'taxExchangeRate', 'taxRefundOriginal', 'taxRefundTwd');
 
     ['expOriginalAmount', 'expExchangeRate'].forEach(id => {
       document.getElementById(id).addEventListener('input', () => {
@@ -473,7 +545,7 @@ window.AppUI = (function () {
       const allocRecords = [];
       draftItems.forEach((it, idx) => (it.allocations || []).forEach(a => allocRecords.push({ id: a.id || Store.genId('alc'), expenseId, expenseItemId: itemRecords[idx].id, tripId, memberId: a.memberId, splitType: it.splitMode || a.splitType || 'equal', allocatedQty: Number(a.allocatedQty || 0), allocatedOriginal: Number(a.allocatedOriginal || 0), allocatedTwd: 0 })));
       const previewCheck = Engine.calculateExpenseBreakdown(expenseRecord, itemRecords, allocRecords);
-      if (previewCheck.warnings.length > 0 && !confirm('分帳提醒：\n- ' + previewCheck.warnings.join('\n- ') + '\n\n確定仍要儲存嗎？')) return;
+      if (previewCheck.warnings.length > 0 && !confirm('分帳提醒：' + previewCheck.warnings.join('；') + '。確定仍要儲存嗎？')) return;
 
       Store.mutate([
         ...data.ExpenseItems.filter(i => i.expenseId === expenseId).map(i => ({ table: 'ExpenseItems', type: 'delete', id: i.id })),
@@ -489,23 +561,6 @@ window.AppUI = (function () {
     ['payOriginalAmount', 'payExchangeRate'].forEach(id => document.getElementById(id).addEventListener('input', () => {
       document.getElementById('payTwdAmount').value = Engine.roundAmount(Number(document.getElementById('payOriginalAmount').value || 0) * Number(document.getElementById('payExchangeRate').value || 1), 0);
     }));
-    function bindCurrencyAutoRate(currId, rateId, origId, twdId) {
-      const currEl = document.getElementById(currId);
-      if (!currEl) return;
-      currEl.addEventListener('change', () => {
-        const found = Store.DEFAULT_CURRENCIES.find(c => c.code === currEl.value);
-        const newRate = currEl.value === 'TWD' ? 1 : (found ? found.defaultRate : 1);
-        document.getElementById(rateId).value = newRate;
-        const orig = Number(document.getElementById(origId).value || 0);
-        if (orig > 0) {
-          document.getElementById(twdId).value = Engine.roundAmount(orig * newRate, 0);
-        }
-      });
-    }
-    bindCurrencyAutoRate('expCurrency', 'expExchangeRate', 'expOriginalAmount', 'expTwdAmount');
-    bindCurrencyAutoRate('payCurrency', 'payExchangeRate', 'payOriginalAmount', 'payTwdAmount');
-    bindCurrencyAutoRate('taxCurrency', 'taxExchangeRate', 'taxRefundOriginal', 'taxRefundTwd');
-    
     document.getElementById('paymentForm').addEventListener('submit', e => {
       e.preventDefault();
       const fromId = document.getElementById('payFromMember').value, toId = document.getElementById('payToMember').value;
@@ -546,7 +601,9 @@ window.AppUI = (function () {
     });
     document.getElementById('memberForm').addEventListener('submit', e => {
       e.preventDefault();
-      Store.mutate([{ table: 'Members', type: 'upsert', record: { id: Store.genId('mem'), tripId: Store.getActiveTripId(), name: document.getElementById('newMemberName').value.trim(), avatarColor: '#C86D3B', note: document.getElementById('newMemberNote').value.trim(), isActive: true } }]);
+      const tripId = Store.getActiveTripId();
+      if (!tripId) { alert('請先建立一個旅程，再新增旅伴成員！'); return; }
+      Store.mutate([{ table: 'Members', type: 'upsert', record: { id: Store.genId('mem'), tripId, name: document.getElementById('newMemberName').value.trim(), avatarColor: '#C86D3B', note: document.getElementById('newMemberNote').value.trim(), isActive: true } }]);
       e.target.reset();
     });
 

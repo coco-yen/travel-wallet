@@ -11,6 +11,7 @@ window.TravelExporter = (function () {
   }
 
   function exportAllCSV(tripState, settlement) {
+    const NL = String.fromCharCode(10);
     const lines = [];
     const addSection = (title, headers, rows) => {
       lines.push(`=== ${title} ===`);
@@ -35,7 +36,7 @@ window.TravelExporter = (function () {
         s.taxRefundReceivedTwd, s.grossShareTwd, s.taxRefundBenefitTwd, s.netShareTwd, s.netBalanceTwd
       ])
     );
-    const csvText = '\uFEFF' + lines.join('\n');
+    const csvText = '\uFEFF' + lines.join(NL);
     downloadBlob(new Blob([csvText], { type: 'text/csv;charset=utf-8;' }), `TravelWallet_${new Date().toISOString().slice(0, 10)}.csv`);
   }
 
